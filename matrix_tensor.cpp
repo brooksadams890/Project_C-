@@ -27,6 +27,7 @@ public:
 
     // Access operator
     int& at(int r, int c) { return data[r][c]; }
+    const int& at(int r, int c) const { return data[r][c]; }
 
     // Addition Check and Error 
     Matrix operator+(const Matrix& other) const {
@@ -92,9 +93,13 @@ public:
         data = d;
     }
 
+    int getDim1() const { return dim1; }
+    int getDim2() const { return dim2; }
+    int getDim3() const { return dim3; }
+
     // Access
     int& at(int i, int j, int k) { return data[i][j][k]; }
-
+    const int& at(int i, int j, int k) const { return data[i][j][k]; } // const overload
     // Addition 
     Tensor3D operator+(const Tensor3D& other) const {
         if (dim1 != other.dim1 || dim2 != other.dim2 || dim3 != other.dim3)
@@ -107,6 +112,83 @@ public:
                     result.data[i][j][k] = data[i][j][k] + other.data[i][j][k];
         return result;
     }
+
+    //Elementwise multiplication
+    Tensor3D elemwiseMultiply(const Tensor3D& other) const {
+        if (dim1 != other.dim1 || dim2 != other.dim2 || dim3 != other.dim3)
+        throw invalid_argument("Tensor does not match for elemwiseMultiply");
+
+        Tensor3D result(dim1, dim2, dim3);
+        for (int i = 0; i < dim1; i++)
+            for (int j = 0; j < dim2; j++)
+                for (int k = 0; k < dim3; k++)
+                    result.data[i][j][k] = data[i][j][k] * other.data[i][j][k];
+        return result;
+    }
+
+    // Slice extraction 
+    Matrix slice(int d) const {
+        if (d < 0 || d >= dim1)
+            throw out_of_range("Slice index out of range");
+        
+        Matrix result(dim2, dim3);
+        for (int i = 0; i < dim2; i++){
+            for (int j = 0; j < dim3; j++){
+                result.at(i,j) = data[d][i][j];
+             } 
+        }
+        return result;
+         
+        }
+
+    // Reshape
+    void reshape(int newD1, int newD2, int newD3) {
+        int oldTotal = dim1 * dim2 * dim3;
+        int newTotal = newD1 * newD2 * newD3;
+        if (oldTotal != newTotal)
+            throw invalid_argument("reshape: total number pf elements must stay the same");
+
+     //Flatten current data in order 
+     vector<int> flat;
+     flat.reserve(oldTotal);
+     for (int i = 0; i < dim1; i++)
+        for (int j = 0; j < dim2; j++)
+            for (int k= 0; k < dim3; k++)
+                flat.push_back(data[i][j][k]);
+    dim1 = newD1;
+    dim2 = newD2;
+    dim3 = newD3;
+
+    data.assign(dim1, vector<vector<int>>(dim2, vector<int>(dim3)));
+    int idx = 0;
+    for (int i = 0; i < dim1; i++)
+        for (int j = 0; j < dim2; j++)
+            for (int k = 0; k < dim3; k++)
+                data[i][j][k] = flat[idx++];
+    }
+
+    // Channel-wise multiplication with a matrix
+    Tensor3D operator*(const Matrix& other) const {
+        if (dim3 != other.getRows())
+            throw invalid_argument("Tensor 3D * Matrix: dim3 must equal matrix rows");
+        
+        int K = other.getClms();
+        Tensor3D result(dim1, dim2, K);
+
+        for (int d = 0; d < dim1; d++) {
+            for (int i = 0; i < dim2; i++) {
+               for (int outCol = 0; outCol < K; outCol++){
+                int sum = 0;
+                for (int c = 0; c < dim3; c++) {
+                    sum += data[d][i][c] * other.at(c, outCol);
+                }
+                result.at(d, i, outCol) = sum;
+             } 
+        }                
+            
+    }
+    return result;
+}
 
     // Printing 
     void print() const {
